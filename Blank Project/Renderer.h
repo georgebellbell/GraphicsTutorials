@@ -17,6 +17,10 @@ public:
 protected:
 	//Mesh*	triangle;
 
+	void PresentScene();
+	void DrawPostProcess();
+	void DrawScene();
+
 	void DrawShadowScene();
 	void DrawMainScene();
 	void DrawSkybox();
@@ -32,11 +36,20 @@ protected:
 	GLuint cubeMap;
 	GLuint mirrorTex;
 
-	Shader* sceneShadowShader;
+
+	GLuint bufferFBO;
+	GLuint processFBO;
+	GLuint bufferColourTex[2];
+	GLuint bufferDepthTex;
+
+
+	Shader* sceneShader;
 	Shader* shadowShader;
 	Shader* skyboxShader;
 	Shader* reflectShader;
+	Shader* pprocessShader;
 
+	Mesh* quad;
 	HeightMap* heightMap;
 	Mesh* skyboxQuad;
 	Mesh* mirrorQuad;

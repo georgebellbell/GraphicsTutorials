@@ -11,6 +11,7 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	camera = new Camera(-30.0f, 315.0f, Vector3(-8.0f, 5.0f, 8.0f));
 	light = new Light(Vector3(-20.0f, 10.0f, -20.0f), Vector4(1, 1, 1, 1), 250.0f);
 
+	quad = Mesh::GenerateQuad();
 	heightMap = new HeightMap(TEXTUREDIR"noise.png");
 	skyboxQuad = Mesh::GenerateQuad();
 	mirrorQuad = Mesh::GenerateQuad();
@@ -20,13 +21,15 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	
 
 	reflectShader = new Shader("reflectVertex.glsl", "reflectFragment.glsl");
-	sceneShadowShader = new Shader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
+	sceneShader = new Shader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
 	shadowShader = new Shader("shadowVert.glsl", "shadowFrag.glsl");
 	skyboxShader = new Shader("skyboxVertex.glsl", "skyboxFragment.glsl");
+	pprocessShader = new Shader("TexturedVertex.glsl", "processfrag.glsl");
 
 
-	if (!sceneShadowShader->LoadSuccess() || !shadowShader->LoadSuccess() || !reflectShader->LoadSuccess() ||
-		!skyboxShader->LoadSuccess()) {
+
+	if (!sceneShader->LoadSuccess() || !shadowShader->LoadSuccess() || !reflectShader->LoadSuccess() ||
+		!skyboxShader->LoadSuccess() || !pprocessShader->LoadSuccess()) {
 		return;
 	}
 
@@ -46,8 +49,6 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	SetTextureRepeating(sceneDiffuse, true);
 	SetTextureRepeating(sceneBump, true);
 
-
-
 	// SHADOW
 	glGenTextures(1, &shadowTex);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
@@ -63,8 +64,42 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 
-	
+	//POSTPROCESS
 
+	glGenTextures(1, &bufferDepthTex);
+	glBindTexture(GL_TEXTURE_2D, bufferDepthTex);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height,
+				0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+
+	for (int i = 0; i < 2; i++) {
+		glGenTextures(1, &bufferColourTex[i]);
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[i]);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		
+	}
+
+	glGenFramebuffers(1, &bufferFBO);
+	glGenFramebuffers(1, &processFBO);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
+	
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || !bufferDepthTex || !bufferColourTex[0]) {
+		return;
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -94,11 +129,18 @@ Renderer::~Renderer(void)	{
 	delete mirrorQuad;
 	delete skyboxQuad;
 	delete camera;
-	delete sceneShadowShader;
+	delete sceneShader;
 	delete shadowShader;
 	delete skyboxShader;
 	delete reflectShader;
+	delete pprocessShader;
 	delete heightMap;
+	delete quad;
+
+	glDeleteTextures(2, bufferColourTex);
+	glDeleteTextures(1, &bufferDepthTex);
+	glDeleteFramebuffers(1, &bufferFBO);
+	glDeleteFramebuffers(1, &processFBO);
 }
 
 void Renderer::UpdateScene(float dt) {
@@ -106,6 +148,7 @@ void Renderer::UpdateScene(float dt) {
 	viewMatrix = camera->BuildViewMatrix();
 	sceneTime += dt;
 
+	//move shapes
 	Vector3 t = Vector3(-5, 0.5f, 7.0f + sin(sceneTime));
 	Vector3 s = Vector3(5, 0.5f, -7.0f + sin(sceneTime));
 	sceneTransforms[1] = Matrix4::Translation(t);
@@ -113,16 +156,69 @@ void Renderer::UpdateScene(float dt) {
 }
 
 void Renderer::RenderScene()	{
-	/*DrawScene();
+	DrawScene();
 	DrawPostProcess();
-	PresentScene();*/
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	PresentScene();	
+}
+
+void Renderer::DrawScene() {
+	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	DrawSkybox();
 	DrawShadowScene();
 	DrawMainScene();
 	DrawMirrors();
-	
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+}
+
+void Renderer::DrawPostProcess() {
+	glBindFramebuffer(GL_FRAMEBUFFER, processFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+		GL_TEXTURE_2D, bufferColourTex[1], 0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	BindShader(pprocessShader);
+	modelMatrix.ToIdentity();
+	viewMatrix.ToIdentity();
+	projMatrix.ToIdentity();
+	UpdateShaderMatrices();
+
+	glDisable(GL_DEPTH_TEST);
+
+	glActiveTexture(GL_TEXTURE0);
+	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "sceneTex"), 0);
+	for (int i = 0; i < POST_PASSES; i++) {
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
+		glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "isVertical"), 0);
+
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
+		quad->Draw();
+
+		glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "isVertical"), 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
+		glBindTexture(GL_TEXTURE_2D, bufferColourTex[1]);
+		quad->Draw();
+	}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glEnable(GL_DEPTH_TEST);
+
+}
+
+void Renderer::PresentScene() {
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+	BindShader(sceneShader);
+	modelMatrix.ToIdentity();
+	viewMatrix.ToIdentity();
+	projMatrix.ToIdentity();
+	UpdateShaderMatrices();
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
+	quad->Draw();
 }
 
 void Renderer::DrawSkybox() {
@@ -164,16 +260,16 @@ void Renderer::DrawShadowScene() {
 }
 
 void Renderer::DrawMainScene() {
-	BindShader(sceneShadowShader);
+	BindShader(sceneShader);
 	SetShaderLight(*light);
 	viewMatrix = camera->BuildViewMatrix();
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 
-	glUniform1i(glGetUniformLocation(sceneShadowShader->GetProgram(), "diffuseTex"), 0);
-	glUniform1i(glGetUniformLocation(sceneShadowShader->GetProgram(), "bumpTex"), 1);
-	glUniform1i(glGetUniformLocation(sceneShadowShader->GetProgram(), "shadowTex"), 2);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "bumpTex"), 1);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "shadowTex"), 2);
 
-	glUniform3fv(glGetUniformLocation(sceneShadowShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+	glUniform3fv(glGetUniformLocation(sceneShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, sceneDiffuse);

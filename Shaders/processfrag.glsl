@@ -25,7 +25,7 @@ void main(void) {
 	}
 	for(int i = 0; i < 7; i++) {
 		vec2 offset = delta * (i - 3);
-		vec4 tmp = texture2D(sceneTex, IN.texCoord.xy + offset);
+		vec4 tmp = texture(sceneTex, IN.texCoord.xy + offset);
 		fragColor += tmp * scaleFactors[i];
 	}
 }
