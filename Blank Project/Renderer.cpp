@@ -210,7 +210,7 @@ void Renderer::DrawPostProcess() {
 void Renderer::PresentScene() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-	BindShader(sceneShader);
+	BindShader(pprocessShader);
 	modelMatrix.ToIdentity();
 	viewMatrix.ToIdentity();
 	projMatrix.ToIdentity();
@@ -256,7 +256,7 @@ void Renderer::DrawShadowScene() {
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glViewport(0, 0, width, height);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
 }
 
 void Renderer::DrawMainScene() {
