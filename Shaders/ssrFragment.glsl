@@ -17,7 +17,7 @@ const float maxDDepthInv = 1.0;
 
 const float fallOffExponent = 3.0;
 
-uniform mat4 projection;
+uniform mat4 projMatrix;
 
 vec3 BSearch(vec3 direction, inout vec3 hitCoord, out float dDepth)
 {
@@ -26,7 +26,7 @@ vec3 BSearch(vec3 direction, inout vec3 hitCoord, out float dDepth)
 
 	for (int i = 0; i < binarySearchSteps; i++) {
 
-		vec4 projectedCoordinate = projection * vec4(hitCoord, 1.0);
+		vec4 projectedCoordinate = projMatrix * vec4(hitCoord, 1.0);
 		projectedCoordinate.xy /= projectedCoordinate.w;
 		projectedCoordinate.xy = projectedCoordinate.xy * 0.5 + 0.5;
 
@@ -42,7 +42,7 @@ vec3 BSearch(vec3 direction, inout vec3 hitCoord, out float dDepth)
 		hitCoord -= direction;
 	}
 
-	vec4 projectedCoordinate = projection * vec4(hitCoord, 1.0);
+	vec4 projectedCoordinate = projMatrix * vec4(hitCoord, 1.0);
 		projectedCoordinate.xy /= projectedCoordinate.w;
 		projectedCoordinate.xy = projectedCoordinate.xy * 0.5 + 0.5;
 
@@ -59,7 +59,7 @@ vec4 RayMarch(vec3 direction, inout vec3 hitCoord, out float dDepth)
 	{
 		hitCoord += direction;
 
-		vec4 projectedCoordinate = projection * vec4(hitCoord, 1.0);
+		vec4 projectedCoordinate = projMatrix * vec4(hitCoord, 1.0);
 		projectedCoordinate.xy /= projectedCoordinate.w;
 		projectedCoordinate.xy = projectedCoordinate.xy * 0.5 + 0.5;
 
@@ -112,4 +112,6 @@ void main()
 
 	fragColor = vec4(texture(effect, coords.xy).rgb, pow(specular, fallOffExponent) * screenEdgeFactor * clamp(-reflected.z, 0.0, 1.0) *
 				clamp((searchDistance - length(viewPos - hitPos)) * searchDistanceInv, 0.0, 1.0) * coords.w);
+
+	//fragColor = vec4(texture(colour, IN.texCoord).xyz, 1.0);
 }

@@ -14,6 +14,9 @@ public:
 	 void UpdateScene(float msec)	override;
 
 	 inline void SetRotation(float r) { rotation = r; }
+private:
+	void CreateGBuffer(int width, int heigth);
+	void CreatePostBuffer(int width, int heigth);
 protected:
 	//Mesh*	triangle;
 
@@ -36,13 +39,18 @@ protected:
 	GLuint cubeMap;
 	GLuint mirrorTex;
 
+	//Framebuffer and textures used for post processing
+	GLuint postProcessingFBO;
+	GLuint postProcessingTexture;
 
-	GLuint bufferFBO;
-	GLuint processFBO;
-	GLuint bufferColourTex[2];
-	GLuint bufferDepthTex;
+	//Framebuffer for rendering the scene
+	GLuint gBufferFBO;
+	GLuint gBufferColourTex;
+	GLuint gBufferPositionTex;
+	GLuint gBufferNormalTex;
+	GLuint gBufferDepthTex;
 
-
+	//
 	Shader* sceneShader;
 	Shader* shadowShader;
 	Shader* skyboxShader;

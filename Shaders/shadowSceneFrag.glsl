@@ -20,7 +20,9 @@ in Vertex {
 	vec4 shadowProj;
 } IN;
 
-out vec4 fragColour;
+layout(location = 0) out vec4 gColour;
+layout(location = 1) out vec4 gPosition;
+layout(location = 2) out vec4 gNormal;
 
 void main(void) {
 	vec3 incident = normalize(lightPos - IN.worldPos);
@@ -53,10 +55,15 @@ void main(void) {
 	}
 
 	vec3 surface = (diffuse.rgb * lightColour.rgb);
+	vec4 fragColour = vec4(0.0);
 	fragColour.rgb = surface * attenuation * lambert;
 	fragColour.rgb += (lightColour.rgb * attenuation * specFactor) *0.33;
 	fragColour.rgb *= shadow;
 	fragColour.rgb += surface * 0.1f;
 	fragColour.a = diffuse.a;
-
+	
+	//Write to G-Buffer
+	gColour = fragColour;
+	gPosition = vec4(IN.worldPos, 1.0);
+	gNormal = vec4(normal, 1.0);
 }

@@ -12,7 +12,9 @@ in Vertex {
 	vec3 worldPos;
 } IN;
 
-out vec4 fragColour;
+layout(location = 0) out vec4 gColour;
+layout(location = 1) out vec4 gPosition;
+layout(location = 2) out vec4 gNormal;
 
 void main(void) {
 	vec4 diffuse = texture(diffuseTex, IN.texCoord);
@@ -21,5 +23,7 @@ void main(void) {
 	vec3 reflectDir = reflect(-viewDir, normalize(IN.normal));
 	vec4 reflectTex = texture(cubeTex, reflectDir);
 
-	fragColour = reflectTex + (diffuse * 0.25f);
+	gColour = reflectTex + (diffuse * 0.25f);
+	gPosition = vec4(0.0);
+	gNormal = vec4(0.0);
 }

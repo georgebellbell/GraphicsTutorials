@@ -3,9 +3,20 @@
 #include "../nclgl/Light.h"
 #include "../nclgl/HeightMap.h"
 
-
 #define SHADOWSIZE 2048
-const int POST_PASSES = 10;
+
+Shader* loadShader(const std::string& vertex, const std::string& fragment, const std::string& geometry = "", const std::string& domain = "", const std::string& hull = "") {
+	Shader* shader = new Shader(vertex, fragment, geometry, domain, hull);
+	
+	if (!shader->LoadSuccess()) {
+		std::cout << "Error when loading shader\n Pressing any key to exit...";
+		std::cin.get();
+
+		std::exit(-1);
+	}
+
+	return shader;
+}
 
 Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	camera = new Camera(-30.0f, 315.0f, Vector3(-8.0f, 5.0f, 8.0f));
@@ -19,19 +30,11 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cube.msh"));	// 1 moving cube
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cylinder.msh")); // 2 - spinning cylinder
 	
-
-	reflectShader = new Shader("reflectVertex.glsl", "reflectFragment.glsl");
-	sceneShader = new Shader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
-	shadowShader = new Shader("shadowVert.glsl", "shadowFrag.glsl");
-	skyboxShader = new Shader("skyboxVertex.glsl", "skyboxFragment.glsl");
-	pprocessShader = new Shader("TexturedVertex.glsl", "processfrag.glsl");
-
-
-
-	if (!sceneShader->LoadSuccess() || !shadowShader->LoadSuccess() || !reflectShader->LoadSuccess() ||
-		!skyboxShader->LoadSuccess() || !pprocessShader->LoadSuccess()) {
-		return;
-	}
+	reflectShader = loadShader("reflectVertex.glsl", "reflectFragment.glsl");
+	sceneShader = loadShader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
+	shadowShader = loadShader("shadowVert.glsl", "shadowFrag.glsl");
+	skyboxShader = loadShader("skyboxVertex.glsl", "skyboxFragment.glsl");
+	pprocessShader = loadShader("TexturedVertex.glsl", "ssrFragment.glsl");
 
 	sceneDiffuse = SOIL_load_OGL_texture(TEXTUREDIR"Barren Reds.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 	sceneBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
@@ -49,7 +52,7 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	SetTextureRepeating(sceneDiffuse, true);
 	SetTextureRepeating(sceneBump, true);
 
-	// SHADOW
+	/* Create framebuffer for shadows */
 	glGenTextures(1, &shadowTex);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
 	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -63,43 +66,10 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	glDrawBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	CreateGBuffer(width, height);
+	CreatePostBuffer(width, height);
 
-	//POSTPROCESS
-
-	glGenTextures(1, &bufferDepthTex);
-	glBindTexture(GL_TEXTURE_2D, bufferDepthTex);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height,
-				0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
-
-	for (int i = 0; i < 2; i++) {
-		glGenTextures(1, &bufferColourTex[i]);
-		glBindTexture(GL_TEXTURE_2D, bufferColourTex[i]);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-		
-	}
-
-	glGenFramebuffers(1, &bufferFBO);
-	glGenFramebuffers(1, &processFBO);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, bufferDepthTex, 0);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
-	
-	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE || !bufferDepthTex || !bufferColourTex[0]) {
-		return;
-	}
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	
+	//All hail the OpenGL state machine
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -116,9 +86,9 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	sceneTime = 0.0f;
 
 	init = true;
-
 }
-Renderer::~Renderer(void)	{
+
+Renderer::~Renderer(void) {
 	glDeleteTextures(1, &shadowTex);
 	glDeleteFramebuffers(1, &shadowFBO);
 
@@ -137,10 +107,118 @@ Renderer::~Renderer(void)	{
 	delete heightMap;
 	delete quad;
 
-	glDeleteTextures(2, bufferColourTex);
-	glDeleteTextures(1, &bufferDepthTex);
-	glDeleteFramebuffers(1, &bufferFBO);
-	glDeleteFramebuffers(1, &processFBO);
+	glDeleteFramebuffers(1, &postProcessingFBO);
+	glDeleteTextures(1, &postProcessingTexture);
+
+	glDeleteFramebuffers(1, &gBufferFBO);
+	glDeleteTextures(1, &gBufferColourTex);
+	glDeleteTextures(1, &gBufferPositionTex);
+	glDeleteTextures(1, &gBufferNormalTex);
+	glDeleteTextures(1, &gBufferDepthTex);
+}
+
+void Renderer::CreateGBuffer(int width, int heigth) {
+	glGenFramebuffers(1, &gBufferFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+
+	//Create colour texture
+	glGenTextures(1, &gBufferColourTex);
+	glBindTexture(GL_TEXTURE_2D, gBufferColourTex);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gBufferColourTex, 0);
+
+	glObjectLabel(GL_TEXTURE, gBufferColourTex, -1, "G-Buffer Colour");
+
+	//Create depth texture
+	glGenTextures(1, &gBufferDepthTex);
+	glBindTexture(GL_TEXTURE_2D, gBufferDepthTex);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH24_STENCIL8, width, height, 0, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, NULL);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, gBufferDepthTex, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, gBufferDepthTex, 0);
+
+	glObjectLabel(GL_TEXTURE, gBufferDepthTex, -1, "G-Buffer Depth");
+
+	//Create position texture
+	glGenTextures(1, &gBufferPositionTex);
+	glBindTexture(GL_TEXTURE_2D, gBufferPositionTex);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gBufferPositionTex, 0);
+
+	glObjectLabel(GL_TEXTURE, gBufferPositionTex, -1, "G-Buffer Position");
+
+	//Create normal texture
+	glGenTextures(1, &gBufferNormalTex);
+	glBindTexture(GL_TEXTURE_2D, gBufferNormalTex);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, width, height, 0, GL_RGB, GL_FLOAT, NULL);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gBufferNormalTex, 0);
+
+	glObjectLabel(GL_TEXTURE, gBufferNormalTex, -1, "G-Buffer Normal");
+
+	//Tell OpenGL which buffers to use for rendering
+	GLuint attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
+
+	//Check framebuffer status
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		//Should probably print an error here 
+		return;
+	}
+
+	//Unbind for sanity reasons
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void Renderer::CreatePostBuffer(int width, int heigth) {
+	glGenFramebuffers(1, &postProcessingFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessingFBO);
+
+	glGenTextures(1, &postProcessingTexture);
+	glBindTexture(GL_TEXTURE_2D, postProcessingTexture);
+
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, postProcessingTexture, 0);
+
+	glObjectLabel(GL_TEXTURE, postProcessingTexture, -1, "Post-Processing Colour");
+
+	//Check framebuffer status
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		//Should probably print an error here 
+		return;
+	}
+
+	//Unbind for sanity reasons
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 void Renderer::UpdateScene(float dt) {
@@ -155,14 +233,16 @@ void Renderer::UpdateScene(float dt) {
 	sceneTransforms[2] = Matrix4::Translation(s) * Matrix4::Rotation(sceneTime * 30 , Vector3(0, 1, 0)) * Matrix4::Rotation(90, Vector3(1, 0, 0));
 }
 
-void Renderer::RenderScene()	{
+void Renderer::RenderScene() {
 	DrawScene();
 	DrawPostProcess();
 	PresentScene();	
 }
 
 void Renderer::DrawScene() {
-	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
+
+	glClearColor(0.69f, 0.69f, 0.69f, 1.0f); //Nice 
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 	DrawSkybox();
@@ -171,13 +251,12 @@ void Renderer::DrawScene() {
 	DrawMirrors();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
 }
 
 void Renderer::DrawPostProcess() {
-	glBindFramebuffer(GL_FRAMEBUFFER, processFBO);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-		GL_TEXTURE_2D, bufferColourTex[1], 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, postProcessingFBO);
+
+	glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
 	BindShader(pprocessShader);
@@ -188,20 +267,33 @@ void Renderer::DrawPostProcess() {
 
 	glDisable(GL_DEPTH_TEST);
 
+	//Bind colour buffer to slot 0
 	glActiveTexture(GL_TEXTURE0);
-	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "sceneTex"), 0);
-	for (int i = 0; i < POST_PASSES; i++) {
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[1], 0);
-		glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "isVertical"), 0);
+	glBindTexture(GL_TEXTURE_2D, gBufferColourTex);
 
-		glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
-		quad->Draw();
+	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "colour"), 0);
 
-		glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "isVertical"), 0);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, bufferColourTex[0], 0);
-		glBindTexture(GL_TEXTURE_2D, bufferColourTex[1]);
-		quad->Draw();
-	}
+	//Bind position buffer to slot 1
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, gBufferPositionTex);
+
+	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "position"), 1);
+
+	//Bind normal buffer to slot 2
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, gBufferNormalTex);
+
+	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "normal"), 2);
+
+	//Bind effect buffer to slot 3
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, gBufferNormalTex);
+
+	glUniform1i(glGetUniformLocation(pprocessShader->GetProgram(), "effect"), 3);
+	
+	//Bind a new colour attachment to the framebuffer and draw
+	quad->Draw();
+
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glEnable(GL_DEPTH_TEST);
 
@@ -210,13 +302,15 @@ void Renderer::DrawPostProcess() {
 void Renderer::PresentScene() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
 	BindShader(pprocessShader);
 	modelMatrix.ToIdentity();
 	viewMatrix.ToIdentity();
 	projMatrix.ToIdentity();
 	UpdateShaderMatrices();
+
 	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, bufferColourTex[0]);
+	glBindTexture(GL_TEXTURE_2D, postProcessingTexture);
 	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
 	quad->Draw();
 }
@@ -256,7 +350,7 @@ void Renderer::DrawShadowScene() {
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glViewport(0, 0, width, height);
 
-	glBindFramebuffer(GL_FRAMEBUFFER, bufferFBO);
+	glBindFramebuffer(GL_FRAMEBUFFER, gBufferFBO);
 }
 
 void Renderer::DrawMainScene() {
@@ -291,8 +385,6 @@ void Renderer::DrawMainScene() {
 	UpdateShaderMatrices();
 
 	heightMap->Draw();
-
-
 }
 
 void Renderer::DrawMirrors() {
@@ -305,10 +397,8 @@ void Renderer::DrawMirrors() {
 
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_CUBE_MAP, cubeMap);
-
 	
 	modelMatrix = mirrorTransforms[0] * Matrix4::Rotation(rotation, Vector3(0, 1, 0));
 	UpdateShaderMatrices();
 	mirrorQuad->Draw();
-	
 }
