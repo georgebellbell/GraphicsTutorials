@@ -17,6 +17,7 @@ public:
 private:
 	void CreateGBuffer(int width, int heigth);
 	void CreatePostBuffer(int width, int heigth);
+
 protected:
 	//Mesh*	triangle;
 
