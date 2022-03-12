@@ -38,7 +38,8 @@ protected:
 	float sceneTime;
 
 	GLuint cubeMap;
-	GLuint mirrorTex;
+	GLuint planeTex;
+	GLuint planeBump;
 
 	//Framebuffer and textures used for post processing
 	GLuint postProcessingFBO;

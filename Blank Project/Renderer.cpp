@@ -29,6 +29,7 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	sceneMeshes.emplace_back(Mesh::GenerateQuad());                 // 0 floor
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cube.msh"));	// 1 moving cube
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cylinder.msh")); // 2 - spinning cylinder
+	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cube.msh"));
 	
 	reflectShader = loadShader("reflectVertex.glsl", "reflectFragment.glsl");
 	sceneShader = loadShader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
@@ -39,18 +40,23 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	sceneDiffuse = SOIL_load_OGL_texture(TEXTUREDIR"Barren Reds.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 	sceneBump = SOIL_load_OGL_texture(TEXTUREDIR"Barren RedsDOT3.JPG", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 
+	planeTex = SOIL_load_OGL_texture(TEXTUREDIR"water.TGA", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+	planeBump = SOIL_load_OGL_texture(TEXTUREDIR"waterbump.png", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
+
 	cubeMap = SOIL_load_OGL_cubemap(
 		TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
 		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg",
 		TEXTUREDIR"rusted_south.jpg", TEXTUREDIR"rusted_north.jpg",
 		SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
 
-	if (!sceneDiffuse || !sceneBump || !cubeMap) {
+	if (!sceneDiffuse || !sceneBump || !cubeMap || !planeTex || !planeBump) {
 		return;
 	}
 
 	SetTextureRepeating(sceneDiffuse, true);
 	SetTextureRepeating(sceneBump, true);
+	SetTextureRepeating(planeTex, true);
+	SetTextureRepeating(planeBump, true);
 
 	/* Create framebuffer for shadows */
 	glGenTextures(1, &shadowTex);
@@ -80,6 +86,7 @@ Renderer::Renderer(Window &parent) : OGLRenderer(parent)	{
 	sceneTransforms.resize(4);
 	sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(10, 10, 1));
 	sceneTransforms[2] = Matrix4::Translation(Vector3(5, 2, 0)) *  Matrix4::Rotation(90, Vector3(1, 0, 0));
+	sceneTransforms[3] = Matrix4::Translation(Vector3(0, 0.5, 0));
 	
 	mirrorTransforms.resize(1);
 	mirrorTransforms[0] = Matrix4::Translation(Vector3(0, 2, 0)) * Matrix4::Scale(Vector3(3, 3, 1));
@@ -260,10 +267,10 @@ void Renderer::DrawScene() {
 	glClearColor(0.69f, 0.69f, 0.69f, 1.0f); //Nice 
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-	DrawSkybox();
+	//DrawSkybox();
 	DrawShadowScene();
 	DrawMainScene();
-	DrawMirrors();
+	//DrawMirrors();
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
@@ -395,6 +402,25 @@ void Renderer::DrawMainScene() {
 	glUniform3fv(glGetUniformLocation(sceneShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
 
 	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, planeTex);
+
+	glActiveTexture(GL_TEXTURE1);
+	glBindTexture(GL_TEXTURE_2D, planeBump);
+
+	glActiveTexture(GL_TEXTURE2);
+	glBindTexture(GL_TEXTURE_2D, shadowTex);
+
+	modelMatrix = sceneTransforms[0];
+	UpdateShaderMatrices();
+	sceneMeshes[0]->Draw();
+
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "bumpTex"), 1);
+	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "shadowTex"), 2);
+
+	glUniform3fv(glGetUniformLocation(sceneShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+
+	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, sceneDiffuse);
 
 	glActiveTexture(GL_TEXTURE1);
@@ -403,7 +429,7 @@ void Renderer::DrawMainScene() {
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
 
-	for (int i = 0; i < sceneMeshes.size(); i++)
+	for (int i = 1; i < sceneMeshes.size(); i++)
 	{
 		modelMatrix = sceneTransforms[i];
 		UpdateShaderMatrices();
@@ -413,7 +439,7 @@ void Renderer::DrawMainScene() {
 	modelMatrix = Matrix4::Translation(Vector3(0, -20, 0)) * Matrix4::Scale(Vector3(0.05f, 0.05f, 0.05f));
 	UpdateShaderMatrices();
 
-	heightMap->Draw();
+	//heightMap->Draw();
 }
 
 void Renderer::DrawMirrors() {
