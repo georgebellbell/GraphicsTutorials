@@ -5,7 +5,7 @@ VisualStudioVersion = 16.0.30406.217
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Main Graphics Tutorials", "Main Graphics Tutorials", "{26FF1E94-61DD-4E24-A071-50FA11CAC038}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Graphics Coursework", "Graphics Coursework", "{B12FA29E-1613-4E55-9C1D-B7DCD8A760D8}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Reflections", "Reflections", "{B12FA29E-1613-4E55-9C1D-B7DCD8A760D8}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial 01 - Your First Triangle", "1) Your First Triangle\Tutorial1.vcxproj", "{061C02AD-EAAA-4BB1-9D23-1B1E55D0E924}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -81,7 +81,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Tutorial 15 - Deferred Shad
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nclgl", "nclgl\nclgl.vcxproj", "{98D6B51B-CB0A-4389-ADC6-24082B967C3F}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MProject", "Blank Project\BlankProject.vcxproj", "{8274D442-89CD-4AC2-AA8E-A9FA621452ED}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Screen Space", "Blank Project\BlankProject.vcxproj", "{8274D442-89CD-4AC2-AA8E-A9FA621452ED}"
 	ProjectSection(ProjectDependencies) = postProject
 		{98D6B51B-CB0A-4389-ADC6-24082B967C3F} = {98D6B51B-CB0A-4389-ADC6-24082B967C3F}
 	EndProjectSection

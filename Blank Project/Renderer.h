@@ -5,15 +5,16 @@ class Camera;
 class Mesh;
 class HeightMap;
 
-class Renderer : public OGLRenderer	{
+class Renderer : public OGLRenderer {
 public:
-	Renderer(Window &parent);
-	 ~Renderer(void);
+	Renderer(Window& parent);
+	~Renderer(void);
 
-	 void RenderScene()				override;
-	 void UpdateScene(float msec)	override;
+	void RenderScene()				override;
+	void UpdateScene(float msec)	override;
 
-	 inline void SetRotation(float r) { rotation = r; }
+	inline void SetRotation(float r) { rotation = r; }
+
 private:
 	void CreateGBuffer(int width, int heigth);
 	void CreatePostBuffer(int width, int heigth);

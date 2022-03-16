@@ -11,8 +11,6 @@ uniform vec3 cameraPos;
 
 uniform mat4 inverseProjView;
 
-
-
 in Vertex {
 	vec2 texCoord;
 } IN;
@@ -30,17 +28,17 @@ void main()
 	float height = 1 / pixelSize.y;
 
 	vec3 viewDir = normalize(cameraPos - worldPos);
-
 	vec3 normal = normalize(texture(normalTex, IN.texCoord.xy).xyz * 2.0 - 1.0);
-
-	if (normal == vec3(0, 0, 0))
-	{
-		fragColor = vec4(texture(colourTex, IN.texCoord).xyz, 1.0);
-		return;
-	}
 	vec3 reflectDir = reflect(-viewDir, normalize(normal));
 
-	
+	// Check for if reflection is directly towards camera
+
+	//float dotProduct = max (dot(reflectDir, viewDir), 0.0f);
+	//if (dotProduct <= 0.1) {
+	//	fragColor = vec4(1,0, 0, 1);
+	//	return;
+	//}
+
 
 	// ...and back to screen space
 	vec4 clipSpaceDir = inverse(inverseProjView) * vec4(reflectDir, 1.0);
@@ -49,9 +47,10 @@ void main()
 
 	vec2 screenSpaceDir = normalize((ndcSpaceDir.xy + 1.0) / 2.0);
 
-	//per pixelSize
+	//Different attempts at changing screenSpaceDir to per fragment
 	//screenSpaceDir.x = screenSpaceDir.x / width;
 	//screenSpaceDir.y = screenSpaceDir.y / height;
+
 	// screenSpaceDir = screenSpaceDir / pixelSize;	
 
 	vec2 currentFrag = vec2(gl_FragCoord.xy);
@@ -59,10 +58,6 @@ void main()
 	float currentDepth;
 
 	float iterate = 0.0f;
-	//fragColor = vec4(texture(colourTex, IN.texCoord).xyz, 1.0);
-	//fragColor = vec4(screenSpaceDir, texture(colourTex, IN.texCoord).z,  1.0);
-
-	//return;
 	
 	while (currentFrag.x < -1 || currentFrag.x > 1 || 
 			currentFrag.y < -1 || currentFrag.y > 1) 
@@ -72,10 +67,8 @@ void main()
 		if (iterate >= 300.0f)
 		{
 			break;
-			fragColor = vec4(1,0, 0, 1);
-			return;
 		}
-		//move along by one fragment
+		//move along by one "fragment"
 		currentFrag = currentFrag + screenSpaceDir;
 		currentTexCoord = vec2(currentFrag.xy * pixelSize);
 		currentDepth = texture(depthTex , currentTexCoord.xy).r;
@@ -87,11 +80,9 @@ void main()
 		}
 
 	}
-	vec4 reflectTex = texture(cubeTex, reflectDir);
-
-	vec4 diffuse = texture(colourTex, IN.texCoord);
-
-	fragColor = reflectTex + (diffuse * 0.25);
+	//vec4 reflectTex = texture(cubeTex, reflectDir);
+	//vec4 diffuse = texture(colourTex, IN.texCoord);
+	//fragColor = reflectTex + (diffuse * 0.25);
 
 	fragColor = vec4(texture(colourTex, IN.texCoord).xyz, 1.0);
 

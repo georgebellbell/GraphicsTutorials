@@ -1,15 +1,15 @@
 #include "../NCLGL/window.h"
 #include "Renderer.h"
 
-int main()	{
+int main() {
 	Window w("Make your own project!", 1280, 720, false);
 
-	if(!w.HasInitialised()) {
+	if (!w.HasInitialised()) {
 		return -1;
 	}
-	
+
 	Renderer renderer(w);
-	if(!renderer.HasInitialised()) {
+	if (!renderer.HasInitialised()) {
 		return -1;
 	}
 
@@ -18,7 +18,7 @@ int main()	{
 
 	float rotation = 0.0f;
 
-	while(w.UpdateWindow()  && !Window::GetKeyboard()->KeyDown(KEYBOARD_ESCAPE)){
+	while (w.UpdateWindow() && !Window::GetKeyboard()->KeyDown(KEYBOARD_ESCAPE)) {
 
 		if (Window::GetKeyboard()->KeyDown(KEYBOARD_LEFT))  ++rotation;
 		if (Window::GetKeyboard()->KeyDown(KEYBOARD_RIGHT)) --rotation;
