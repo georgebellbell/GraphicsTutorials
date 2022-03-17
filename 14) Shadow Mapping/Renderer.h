@@ -24,6 +24,8 @@ protected:
 	GLuint sceneBump;
 	float sceneTime;
 
+	GLuint mirrorTex;
+
 	Shader* sceneShader;
 	Shader* shadowShader;
 
