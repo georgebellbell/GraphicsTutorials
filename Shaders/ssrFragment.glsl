@@ -8,7 +8,7 @@ uniform sampler2D depthTex;
 
 uniform vec2 pixelSize;
 uniform vec3 cameraPos;
-
+uniform float shininess;
 uniform mat4 inverseProjView;
 
 in Vertex {
@@ -19,9 +19,19 @@ out vec4 fragColor;
 
 void main()
 {
+	if (shininess == 5.3f)
+	{
+		fragColor = vec4(1, 0, 0, 1);
+		return;
+	}
 	// to world space...
 	float depth = texture(depthTex, IN.texCoord.xy).r;
-	vec3 ndcPos = vec3(IN.texCoord, depth) * 2.0 - 1.0;
+	if (depth == 1.0){
+		fragColor = vec4(texture(colourTex, IN.texCoord).xyz, 1.0);
+		return;
+	}
+
+	vec3 ndcPos = vec3(IN.texCoord, depth)* 0.5 + 0.5;
 	vec4 invClipPos = inverseProjView * vec4(ndcPos, 1.0);
 	vec3 worldPos = invClipPos.xyz / invClipPos.w;
 	float width = 1 / pixelSize.x;
@@ -51,7 +61,10 @@ void main()
 	//screenSpaceDir.x = screenSpaceDir.x / width;
 	//screenSpaceDir.y = screenSpaceDir.y / height;
 
-	// screenSpaceDir = screenSpaceDir / pixelSize;	
+	//screenSpaceDir = screenSpaceDir * pixelSize;	
+	fragColor = vec4(screenSpaceDir, 0.0, 1.0);
+	//return;
+
 
 	vec2 currentFrag = vec2(gl_FragCoord.xy);
 	vec2 currentTexCoord;

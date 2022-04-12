@@ -326,6 +326,9 @@ void Renderer::DrawPostProcess() {
 
 	glUniform2f(glGetUniformLocation(pprocessShader->GetProgram(), "pixelSize"), 1.0f / width, 1.0f / height);
 
+	shininess = 5.3f;
+	glUniform1f(glGetUniformLocation(pprocessShader->GetProgram(), "shininess"), 5.3f);
+
 	Matrix4 invViewProj = (projMatrix * viewMatrix).Inverse();
 	glUniformMatrix4fv(glGetUniformLocation(pprocessShader->GetProgram(), "inverseProjView"), 1, false, invViewProj.values);
 
@@ -402,6 +405,7 @@ void Renderer::DrawMainScene() {
 	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "shadowTex"), 2);
 
 	glUniform3fv(glGetUniformLocation(sceneShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
+	
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, planeTex);

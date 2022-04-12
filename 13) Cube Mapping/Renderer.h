@@ -12,8 +12,7 @@ public:
 	void UpdateScene(float dt) override;
 
 protected:
-	void DrawHeightmap();
-	void DrawWater();
+	void DrawReflection();
 	void DrawSkybox();
 
 	Shader* lightShader;
@@ -22,12 +21,13 @@ protected:
 
 	HeightMap* heightMap;
 	Mesh* quad;
+	Mesh* cube;
 
 	Light* light;
 	Camera* camera;
 
 	GLuint cubeMap;
-	GLuint waterTex;
+	GLuint normalTex;
 	GLuint earthTex;
 	GLuint earthBump;
 

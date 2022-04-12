@@ -152,8 +152,6 @@ void Renderer::DrawMainScene() {
 	modelMatrix = Matrix4::Rotation(180, Vector3(1, 0, 0)) * sceneTransforms[1];
 	UpdateShaderMatrices();
 	sceneMeshes[1]->Draw();
-	glPopMatrix();
-
 	
 	glDisable(GL_STENCIL_TEST);
 	
@@ -164,8 +162,6 @@ void Renderer::DrawMainScene() {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, mirrorTex);
 
-	
-	glColor4f(1, 1, 1, 0.7f);
 	modelMatrix = sceneTransforms[0];
 	UpdateShaderMatrices();
 	sceneMeshes[0]->Draw();

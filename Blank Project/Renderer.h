@@ -74,5 +74,7 @@ protected:
 	Light* light;
 
 	float rotation;
+
+	float shininess;
 };
 
