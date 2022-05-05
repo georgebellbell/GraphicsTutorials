@@ -13,23 +13,20 @@ public:
 	void RenderScene()				override;
 	void UpdateScene(float msec)	override;
 
-	inline void SetRotation(float r) { rotation = r; }
+	inline void SetReflection(float r) { reflection = r; }
 
 private:
 	void CreateGBuffer(int width, int heigth);
 	void CreatePostBuffer(int width, int heigth);
 
 protected:
-	//Mesh*	triangle;
 
 	void PresentScene();
 	void DrawPostProcess();
 	void DrawScene();
 
-	void DrawShadowScene();
 	void DrawMainScene();
 	void DrawSkybox();
-	void DrawMirrors();
 
 	GLuint shadowTex;
 	GLuint shadowFBO;
@@ -53,7 +50,6 @@ protected:
 	GLuint gBufferNormalTex;
 	GLuint gBufferDepthTex;
 
-	//
 	Shader* sceneShader;
 	Shader* shadowShader;
 	Shader* skyboxShader;
@@ -69,12 +65,9 @@ protected:
 
 	vector<Matrix4> mirrorTransforms;
 
-
 	Camera* camera;
 	Light* light;
 
-	float rotation;
-
-	float shininess;
+	float reflection;
 };
 

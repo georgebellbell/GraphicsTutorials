@@ -7,6 +7,7 @@ uniform mat4 textureMatrix;
 
 in vec3 position;
 in vec3 normal;
+in vec2 texCoord;
 
 out Vertex {
 	vec4 colour;

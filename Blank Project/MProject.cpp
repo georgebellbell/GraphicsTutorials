@@ -1,8 +1,8 @@
-#include "../NCLGL/window.h"
+#include "../nclgl/window.h"
 #include "Renderer.h"
 
 int main() {
-	Window w("Make your own project!", 1280, 720, false);
+	Window w("Screen Space Reflections", 1280, 720, false);
 
 	if (!w.HasInitialised()) {
 		return -1;
@@ -16,21 +16,27 @@ int main() {
 	w.LockMouseToWindow(true);
 	w.ShowOSPointer(false);
 
-	float rotation = 0.0f;
+	float currentFrameTime;
+
+	float reflectionPower = 50.0f;
 
 	while (w.UpdateWindow() && !Window::GetKeyboard()->KeyDown(KEYBOARD_ESCAPE)) {
+		
+		if (Window::GetKeyboard()->KeyDown(KEYBOARD_PLUS) && reflectionPower != 100)  reflectionPower = reflectionPower + 0.25f;
+		if (Window::GetKeyboard()->KeyDown(KEYBOARD_MINUS) && reflectionPower != 0) reflectionPower = reflectionPower - 0.25f;
 
-		if (Window::GetKeyboard()->KeyDown(KEYBOARD_LEFT))  ++rotation;
-		if (Window::GetKeyboard()->KeyDown(KEYBOARD_RIGHT)) --rotation;
+		renderer.SetReflection(reflectionPower);
 
-		renderer.SetRotation(rotation);
+		currentFrameTime = w.GetTimer()->GetTimeDeltaSeconds();
 
-		renderer.UpdateScene(w.GetTimer()->GetTimeDeltaSeconds());
+		renderer.UpdateScene(currentFrameTime);
 		renderer.RenderScene();
 		renderer.SwapBuffers();
+		
 		if (Window::GetKeyboard()->KeyDown(KEYBOARD_F5)) {
 			Shader::ReloadAllShaders();
 		}
 	}
+
 	return 0;
 }

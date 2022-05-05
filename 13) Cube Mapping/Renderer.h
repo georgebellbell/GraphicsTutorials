@@ -10,28 +10,28 @@ public:
 	~Renderer(void);
 	void RenderScene() override;
 	void UpdateScene(float dt) override;
-
+	void ToggleObject();
+	inline void SetReflection(float r) { reflectionPower = r; }
+	inline void SetRotation(float r) { rotation = r; }
 protected:
 	void DrawReflection();
 	void DrawSkybox();
 
-	Shader* lightShader;
 	Shader* reflectShader;
 	Shader* skyboxShader;
 
-	HeightMap* heightMap;
 	Mesh* quad;
-	Mesh* cube;
+	Mesh* reflector;
 
-	Light* light;
 	Camera* camera;
 
 	GLuint cubeMap;
 	GLuint normalTex;
 	GLuint earthTex;
 	GLuint earthBump;
-
-	float waterRotate;
-	float waterCycle;
+	
+	float reflectionPower;
+	float rotation;
+	int objectSelected;
 };
 

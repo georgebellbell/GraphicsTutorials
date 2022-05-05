@@ -13,17 +13,21 @@ public:
 	void UpdateScene(float dt) override;
 	void RenderScene() override; 
 
+	inline void SetReflection(float r) { reflectionPower = r; }
+
 protected:
-	void DrawShadowScene();
 	void DrawMainScene();
 
-	GLuint shadowTex;
-	GLuint shadowFBO;
+	void DrawSkybox();
+
+	Shader* skyboxShader;
+
+	Mesh* quad;
 
 	GLuint sceneDiffuse;
 	GLuint sceneBump;
 	float sceneTime;
-
+	GLuint cubeMap;
 	GLuint mirrorTex;
 
 	Shader* sceneShader;
@@ -34,5 +38,7 @@ protected:
 
 	Camera* camera;
 	Light* light;
+
+	float reflectionPower;
 };
 

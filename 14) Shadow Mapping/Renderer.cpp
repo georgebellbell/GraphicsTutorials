@@ -9,21 +9,9 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	camera = new Camera(-30.0f, 315.0f, Vector3(-8.0f, 5.0f, 8.0f));
 	light = new Light(Vector3(-20.0f, 10.0f, -20.0f), Vector4(1, 1, 1, 1), 250.0f);
 
-	sceneShader = new Shader("TexturedVertex.glsl", "TexturedFragment.glsl");
-
-	
-
-	if (!sceneShader->LoadSuccess()) {
-		return;
-	}
-
-
-
+	quad = Mesh::GenerateQuad();
 	sceneMeshes.emplace_back(Mesh::GenerateQuad());
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Sphere.msh"));
-	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Sphere.msh"));
-	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cone.msh"));
-	sceneMeshes.emplace_back(Mesh::GenerateQuad());
 
 	sceneDiffuse = SOIL_load_OGL_texture(TEXTUREDIR"brick.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
 	sceneBump = SOIL_load_OGL_texture(TEXTUREDIR"brickDOT3.tga", SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, SOIL_FLAG_MIPMAPS);
@@ -32,15 +20,27 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 		TEXTUREDIR"stainedglass.tga",
 		SOIL_LOAD_AUTO, SOIL_CREATE_NEW_ID, 0);
 
+	cubeMap = SOIL_load_OGL_cubemap(
+		TEXTUREDIR"rusted_west.jpg", TEXTUREDIR"rusted_east.jpg",
+		TEXTUREDIR"rusted_up.jpg", TEXTUREDIR"rusted_down.jpg",
+		TEXTUREDIR"rusted_south.jpg", TEXTUREDIR"rusted_north.jpg",
+		SOIL_LOAD_RGB, SOIL_CREATE_NEW_ID, 0);
+
 	SetTextureRepeating(sceneDiffuse, true);
 	SetTextureRepeating(sceneBump, true);
 	SetTextureRepeating(mirrorTex, true);
 
+	sceneShader = new Shader("TexturedVertex.glsl", "TexturedFragment.glsl");
+	skyboxShader = new Shader("skyboxVertex.glsl", "skyboxFragment.glsl");
+	if (!sceneShader->LoadSuccess() || !skyboxShader->LoadSuccess()) {
+		return;
+	}
+
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	sceneTransforms.resize(5);
 	sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Translation(Vector3(-5, 0, 0)) * Matrix4::Scale(Vector3(5, 5, 1));
-	sceneTransforms[4] = Matrix4::Translation(Vector3(0, -5, 0)) * Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(10, 10, 1));
 	sceneTime = 0.0f;
 	init = true;
 
@@ -48,7 +48,6 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 }
 
 Renderer::~Renderer(void) {
-	
 
 	for (auto& i : sceneMeshes) {
 		delete i;
@@ -56,7 +55,8 @@ Renderer::~Renderer(void) {
 
 	delete camera;
 	delete sceneShader;
-	
+	delete quad;
+	delete skyboxShader;
 
 }
 
@@ -74,64 +74,39 @@ void Renderer::UpdateScene(float dt) {
 
 void Renderer::RenderScene() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-	//DrawShadowScene();
+	DrawSkybox();
 	DrawMainScene();
 }
 
-void Renderer::DrawShadowScene() {
-	glBindFramebuffer(GL_FRAMEBUFFER, shadowFBO);
+void Renderer::DrawSkybox() {
+	glDepthMask(GL_FALSE);
 
-	glClear(GL_DEPTH_BUFFER_BIT);
-	glViewport(0, 0, SHADOWSIZE, SHADOWSIZE);
-	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+	BindShader(skyboxShader);
+	UpdateShaderMatrices();
+	quad->Draw();
 
-	BindShader(shadowShader);
-
-	viewMatrix = Matrix4::BuildViewMatrix(light->GetPosition(), Vector3(0, 0, 0));
-	projMatrix = Matrix4::Perspective(1, 100, 1, 45);
-	shadowMatrix = projMatrix * viewMatrix;
-
-	for (int i = 0; i < 5; i++)
-	{
-		modelMatrix = sceneTransforms[i];
-		UpdateShaderMatrices();
-		sceneMeshes[i]->Draw();
-	}
-
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-	glViewport(0, 0, width, height);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDepthMask(GL_TRUE);
 }
-
 void Renderer::DrawMainScene() {
 	BindShader(sceneShader);
 	SetShaderLight(*light);
 	viewMatrix = camera->BuildViewMatrix();
 	projMatrix = Matrix4::Perspective(1.0f, 15000.0f, (float)width / (float)height, 45.0f);
 
-	//glScalef(1.0f, -1.0f, 1.0f);
-
 	glUniform1i(glGetUniformLocation(sceneShader->GetProgram(), "diffuseTex"), 0);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, sceneDiffuse);
 
-	
-	/*
-	for (int i = 0; i < 5; i++)
-	{
-		modelMatrix = sceneTransforms[i];
-		UpdateShaderMatrices();
-		sceneMeshes[i]->Draw();
-	}
-	*/
-	
-	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+	Vector4 objectColour = Vector4(1, 0, 0, 1);
+	Vector4 mirrorColour = Vector4(0.5, 0.5, 0.5, 0.7);
+
+	glUniform4fv(glGetUniformLocation(sceneShader->GetProgram(), "colour"), 1, (float*)&objectColour);
+
+	glClear(GL_DEPTH_BUFFER_BIT |  GL_STENCIL_BUFFER_BIT);
 
 	modelMatrix = sceneTransforms[1];
 	UpdateShaderMatrices();
 	sceneMeshes[1]->Draw();
-	
 	
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(0, 0, 0, 0);
@@ -141,6 +116,8 @@ void Renderer::DrawMainScene() {
 
 	modelMatrix = sceneTransforms[0];
 	UpdateShaderMatrices();
+
+	glUniform4fv(glGetUniformLocation(sceneShader->GetProgram(), "colour"), 1, (float*)&objectColour);
 
 	sceneMeshes[0]->Draw();
 
@@ -157,13 +134,16 @@ void Renderer::DrawMainScene() {
 	
 	glEnable(GL_BLEND);
 
-	
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, mirrorTex);
 
 	modelMatrix = sceneTransforms[0];
 	UpdateShaderMatrices();
+
+	glUniform4fv(glGetUniformLocation(sceneShader->GetProgram(), "colour"), 1, (float*)&mirrorColour);
+	//Bind reflection strength
+	glUniform1f(glGetUniformLocation(sceneShader->GetProgram(), "reflection"), reflectionPower);
 	sceneMeshes[0]->Draw();
 
 	glDisable(GL_BLEND);
