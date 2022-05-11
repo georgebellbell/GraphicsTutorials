@@ -5,7 +5,7 @@
 #include "../nclgl/Camera.h"
 
 Renderer::Renderer(Window &parent) : OGLRenderer(parent) {
-	camera = new Camera(-45.0f, 0.0f, Vector3(0.5f, 5.0f, 0.5f));
+	camera = new Camera(-45.0f, 0.0f, Vector3(-32.0f, 75.0f, 8.0f));
 
 	quad = Mesh::GenerateQuad();
 	reflector = Mesh::LoadFromMeshFile("Sphere.msh");
@@ -81,10 +81,30 @@ void Renderer::DrawReflection() {
 
 	glUniform1f(glGetUniformLocation(reflectShader->GetProgram(), "reflectionPower"), reflectionPower);
 
-	modelMatrix = Matrix4::Rotation(rotation, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(25.0f, 25.0f, 25.0f));
+	if (expand == true)
+	{
+		Matrix4 translation;
 
-	UpdateShaderMatrices();
-	reflector->Draw();
+		for (int i = 0; i < 99; i++)
+		{
+			for (int j = 0; j < 99; j++)
+			{
+				translation = Matrix4::Translation(Vector3(i * 5, 0, j * 5));
+				modelMatrix = Matrix4::Rotation(rotation, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(25.0f, 25.0f, 25.0f)) * translation;
+				UpdateShaderMatrices();
+				reflector->Draw();
+			}
+
+		}
+	}
+	else if (expand == false)
+	{
+		modelMatrix = Matrix4::Rotation(rotation, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(25.0f, 25.0f, 25.0f));
+		UpdateShaderMatrices();
+		reflector->Draw();
+	}
+	
+	
 }
 
 void Renderer::ToggleObject() {

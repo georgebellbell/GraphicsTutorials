@@ -14,6 +14,8 @@ public:
 	void RenderScene() override; 
 
 	inline void SetReflection(float r) { reflectionPower = r; }
+	inline void ToggleTechnique() { expand = !expand; }
+
 
 protected:
 	void DrawMainScene();
@@ -40,5 +42,5 @@ protected:
 	Light* light;
 
 	float reflectionPower;
+	bool expand = false;
 };
-

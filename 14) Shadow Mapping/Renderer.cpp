@@ -40,7 +40,6 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
 	sceneTransforms.resize(5);
-	sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Translation(Vector3(-5, 0, 0)) * Matrix4::Scale(Vector3(5, 5, 1));
 	sceneTime = 0.0f;
 	init = true;
 
@@ -66,14 +65,23 @@ void Renderer::UpdateScene(float dt) {
 
 	for (int i = 1; i < 4; i++)
 	{
-		Vector3 t = Vector3(-10 + (5 * i), 3.5f + sin(sceneTime * i), 0);
-		sceneTransforms[i] = Matrix4::Translation(t) * Matrix4::Rotation(sceneTime * 10 * i, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(2, 2, 2));
+		Vector3 t = Vector3(0, 3.5f + sin(sceneTime * i), 0);
+		sceneTransforms[i] = Matrix4::Translation(t) * Matrix4::Scale(Vector3(1.5, 1.5, 1.5));
 
 	}
 }
 
 void Renderer::RenderScene() {
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+
+	if (expand == true) {
+		sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Translation(Vector3(240, 240, 0)) * Matrix4::Scale(Vector3(250, 250, 1));
+	}
+	else if (expand == false) {
+
+		sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(10, 10, 1));
+	}
+
 	DrawSkybox();
 	DrawMainScene();
 }
@@ -88,6 +96,8 @@ void Renderer::DrawSkybox() {
 	glDepthMask(GL_TRUE);
 }
 void Renderer::DrawMainScene() {
+
+
 	BindShader(sceneShader);
 	SetShaderLight(*light);
 	viewMatrix = camera->BuildViewMatrix();
@@ -104,9 +114,28 @@ void Renderer::DrawMainScene() {
 
 	glClear(GL_DEPTH_BUFFER_BIT |  GL_STENCIL_BUFFER_BIT);
 
-	modelMatrix = sceneTransforms[1];
-	UpdateShaderMatrices();
-	sceneMeshes[1]->Draw();
+	Matrix4 translation;
+	if (expand == true) {
+		for (int i = 0; i < 99; i++)
+		{
+			for (int j = 0; j < 99; j++)
+			{
+				translation = Matrix4::Translation(Vector3(i * 5, 0, j * 5));
+				modelMatrix = translation * sceneTransforms[1];
+				UpdateShaderMatrices();
+				sceneMeshes[1]->Draw();
+			}
+
+		}
+	}
+	else if (expand == false) 
+	{
+		modelMatrix = sceneTransforms[1];
+		UpdateShaderMatrices();
+		sceneMeshes[1]->Draw();
+	}
+	
+
 	
 	glEnable(GL_STENCIL_TEST);
 	glColorMask(0, 0, 0, 0);
@@ -126,9 +155,26 @@ void Renderer::DrawMainScene() {
 	glStencilFunc(GL_EQUAL, 1, 1);
 	glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
 
-	modelMatrix = Matrix4::Rotation(180, Vector3(1, 0, 0)) * sceneTransforms[1];
-	UpdateShaderMatrices();
-	sceneMeshes[1]->Draw();
+	if (expand == true) 
+	{
+		for (int i = 0; i < 99; i++)
+		{
+			for (int j = 0; j < 99; j++)
+			{
+				translation = Matrix4::Translation(Vector3(i * 5, 0, j * 5));
+				modelMatrix = Matrix4::Rotation(180, Vector3(1, 0, 1)) * translation * sceneTransforms[1];
+				UpdateShaderMatrices();
+				sceneMeshes[1]->Draw();
+			}
+
+		}
+	}
+	else if (expand == false)
+	{
+		modelMatrix = Matrix4::Rotation(180, Vector3(1, 0, 0)) * sceneTransforms[1];
+		UpdateShaderMatrices();
+		sceneMeshes[1]->Draw();
+	}
 	
 	glDisable(GL_STENCIL_TEST);
 	

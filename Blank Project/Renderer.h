@@ -15,6 +15,8 @@ public:
 
 	inline void SetReflection(float r) { reflection = r; }
 
+	inline void ToggleTechnique() { expand = !expand; }
+
 private:
 	void CreateGBuffer(int width, int heigth);
 	void CreatePostBuffer(int width, int heigth);
@@ -69,5 +71,6 @@ protected:
 	Light* light;
 
 	float reflection;
+	bool expand = false;
 };
 

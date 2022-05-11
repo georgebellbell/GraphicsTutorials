@@ -13,6 +13,8 @@ public:
 	void ToggleObject();
 	inline void SetReflection(float r) { reflectionPower = r; }
 	inline void SetRotation(float r) { rotation = r; }
+	inline void ToggleTechnique() { expand = !expand; }
+
 protected:
 	void DrawReflection();
 	void DrawSkybox();
@@ -33,5 +35,6 @@ protected:
 	float reflectionPower;
 	float rotation;
 	int objectSelected;
+	bool expand = false;
 };
 

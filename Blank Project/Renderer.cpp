@@ -7,7 +7,7 @@
 
 Shader* loadShader(const std::string& vertex, const std::string& fragment, const std::string& geometry = "", const std::string& domain = "", const std::string& hull = "") {
 	Shader* shader = new Shader(vertex, fragment, geometry, domain, hull);
-
+	
 	if (!shader->LoadSuccess()) {
 
 		std::cout << "Error when loading shader\n Pressing any key to exit...";
@@ -31,6 +31,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cylinder.msh")); 
 	sceneMeshes.emplace_back(Mesh::LoadFromMeshFile("Cube.msh"));
 
+	
 	sceneShader = loadShader("shadowSceneVert.glsl", "shadowSceneFrag.glsl");
 	skyboxShader = loadShader("skyboxVertex.glsl", "skyboxFragment.glsl");
 	pprocessShader = loadShader("TexturedVertex.glsl", "ssrFragment.glsl");
@@ -66,7 +67,7 @@ Renderer::Renderer(Window& parent) : OGLRenderer(parent) {
 	glCullFace(GL_BACK);
 
 	sceneTransforms.resize(4);
-	sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(10, 10, 1));
+	
 	sceneTransforms[1] = Matrix4::Translation(Vector3(2, 0.5, 0));
 	sceneTransforms[2] = Matrix4::Translation(Vector3(5, 0.5, 0)) * Matrix4::Rotation(90, Vector3(1, 0, 0));
 	sceneTransforms[3] = Matrix4::Translation(Vector3(0, 0.5, 0)) * Matrix4::Translation(Vector3(0, 1, 0));;
@@ -242,6 +243,13 @@ void Renderer::DrawScene() {
 	glClearColor(1.0f, 0.0f, 1.0f, 1.0f);
 	glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+	if (expand == true) {
+		sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Translation(Vector3(240, 240, 0)) * Matrix4::Scale(Vector3(250, 250, 1));
+	}
+	else if (expand == false) {
+
+		sceneTransforms[0] = Matrix4::Rotation(90, Vector3(1, 0, 0)) * Matrix4::Scale(Vector3(10, 10, 1));
+	}
 	DrawSkybox();
 	DrawMainScene();
 
@@ -259,6 +267,7 @@ void Renderer::DrawSkybox() {
 }
 
 void Renderer::DrawMainScene() {
+
 	BindShader(sceneShader);
 	SetShaderLight(*light);
 	viewMatrix = camera->BuildViewMatrix();
@@ -270,6 +279,7 @@ void Renderer::DrawMainScene() {
 
 	glUniform3fv(glGetUniformLocation(sceneShader->GetProgram(), "cameraPos"), 1, (float*)&camera->GetPosition());
 
+	glUniform1f(glGetUniformLocation(sceneShader->GetProgram(), "reflection"), 100);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, planeTex);
@@ -279,6 +289,8 @@ void Renderer::DrawMainScene() {
 
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
+
+	
 
 	modelMatrix = sceneTransforms[0];
 	UpdateShaderMatrices();
@@ -299,11 +311,30 @@ void Renderer::DrawMainScene() {
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, shadowTex);
 
-	for (int i = 1; i < sceneMeshes.size(); i++)
+	if (expand == true) 
 	{
-		modelMatrix = sceneTransforms[i];
-		UpdateShaderMatrices();
-		sceneMeshes[i]->Draw();
+		Matrix4 translation;
+
+		for (int i = 0; i < 99; i++)
+		{
+			for (int j = 0; j < 99; j++)
+			{
+				translation = Matrix4::Translation(Vector3(i * 5, 0, j * 5));
+				modelMatrix = sceneTransforms[1] * translation;
+				UpdateShaderMatrices();
+				sceneMeshes[1]->Draw();
+			}
+
+		}
+	}
+	else if (expand == false)
+	{
+			for (int i = 1; i < sceneMeshes.size(); i++)
+			{
+				modelMatrix = sceneTransforms[i];
+				UpdateShaderMatrices();
+				sceneMeshes[i]->Draw();
+			}
 	}
 
 	modelMatrix = Matrix4::Translation(Vector3(0, -20, 0)) * Matrix4::Scale(Vector3(0.05f, 0.05f, 0.05f));
